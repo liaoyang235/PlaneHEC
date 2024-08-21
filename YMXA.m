@@ -1,52 +1,73 @@
-function [ X ] = YMXA( M,A )
+function [ X ] = YMXA( M,iinv_A )
 %AXXB 使用了K积方法，计算手眼标定问题中的Y=MXA问题，其中Y，M是1*4平面表示，X，A是齐次变换矩阵
-    A = A(:,:,1:10);
-    invA = pageinv(A);
-    n=length(A);
+%     iinv_A = iinv_A(:,:,1:11);
+    A = pageinv(iinv_A);
+    n=length(iinv_A);
     K=[];
+
+%     for i=1:n-1
+%         R1=iinv_A(1:3,1:3,i);
+%         R2=iinv_A(1:3,1:3,i+1);
+%         m1=M(i, 1:3);
+%         m2=M(i+1, 1:3);
+%         K=[K;kron(R1,m1)-kron(R2,m2)];
+%     end
+
     for i=1:n-1
-        R1=A(1:3,1:3,i);
-        R2=A(1:3,1:3,i+1);
-        m1=M(i, 1:3);
-        m2=M(i+1, 1:3);
-        K=[K;kron(R1,m1)-kron(R2,m2)];
+        for j = i+1 : n
+            R1=iinv_A(1:3,1:3,i);
+            R2=iinv_A(1:3,1:3,j);
+            m1=M(i, 1:3);
+            m2=M(j, 1:3);
+            K=[K;kron(R1,m1)-kron(R2,m2)];
+        end
     end
     [U,S,V]=svd(K);
-    Rerror = S(9,9)
+    Rerror = S(9,9);
     col=length(V);
-    Vx=[V(1:3,col),V(4:6,col),V(7:9,col)];   
-    det(Vx);   %看一下Vx的行列式是多少
+    Vx=[V(1:3,col),V(4:6,col),V(7:9,col)];
     RX=Vx / nthroot(det(Vx), 3);   %求它的立方根
 
-    a1 = K * [RX(1:3,1);RX(1:3,2);RX(1:3,3)]
 
+    qX = rotm2quat(RX(1:3,1:3))
+    qX1 = mathtrans().rotm2quat(RX(1:3,1:3));
 
-    [Ux,Sx,Vx]=svd(RX);
-    RX=Ux*Vx';
-    RX=sign(det(RX))*RX
-
-
-
-    a1 = K * [RX(1:3,1);RX(1:3,2);RX(1:3,3)]
+    a1 = K * [RX(1:3,1);RX(1:3,2);RX(1:3,3)];
 
     % X = RX
     
     % Ax=b
     At = [];
     bt = [];
+%     for i=1:n-1
+%         m1=M(i, 1:3);
+%         m2=M(i+1, 1:3);
+%         At = [At; m1-m2];
+%         
+%         t1=A(1:3,4,i);
+%         t2=A(1:3,4,i+1);
+%         d1=M(i, 4);
+%         d2=M(i+1, 4);
+%         bt =[bt; -m1 * RX * t1 + m2 * RX * t2 - d1 + d2];
+%     end
     for i=1:n-1
-        m1=M(i, 1:3);
-        m2=M(i+1, 1:3);
-        At = [At; m1-m2];
-        t1=invA(1:3,4,i);
-        t2=invA(1:3,4,i+1);
-        d1=M(i, 4);
-        d2=M(i+1, 4);
-        bt =[bt; -m1 * RX * t1 + m2 * RX * t2 - d1 + d2];
+        for j = i+1:n
+            m1=M(i, 1:3);
+            m2=M(j, 1:3);
+            At = [At; m1-m2];
+            
+            t1=A(1:3,4,i);
+            t2=A(1:3,4,j);
+            d1=M(i, 4);
+            d2=M(j, 4);
+            bt =[bt; -m1 * RX * t1 + m2 * RX * t2 - d1 + d2];
+        end
     end
+
+    
     tx=At\bt
     
-    err = At*tx
+    err = At*tx - bt;
 
     X=[RX,tx;0,0,0,1];
 end

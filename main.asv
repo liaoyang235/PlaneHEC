@@ -2,8 +2,13 @@
 
 clear;
  clc;
-data = importdata('results_8.20.csv');
-% data = importdata('results_8.2.csv');
+data = importdata('results_8.2.csv');
+% data = importdata('results.csv');
+
+% 这个T用于改变平面的朝向和位置，可以观察不同平面下算法的效果
+% 如果不需要可以设置为单位阵
+% T = eye(4);
+T = [0,1,0,2;1,0,0,0;0,0,1,0;0,0,0,1];
 
 
 [numRows, numCols] = size(data);
@@ -12,28 +17,24 @@ inv_A = [];
 for i=1:numRows
     M = [M; data2plane(data(i, 1:3))];
     data2trans(data(i, 4:10));
-    inv_A = cat(3, inv_A,data2trans(data(i, 4:10)));
+    inv_A = cat(3, inv_A, inv(T)*data2trans(data(i, 4:10)));
 end
 
 
-data_sta = 1;
-data_end = 9;
+data_sta = 21;
+data_end = 30;
 
 X = YMXA(M(data_sta:data_end, :), inv_A(:,:,data_sta:data_end))
-
-qX = rotm2quat(X(1:3,1:3)) %四元数wxyz
-end_result = [X(1:3,4)',qX(2:4), qX(1)];
-fprintf('%.7f,%.7f,%.7f,%.7f,%.7f,%.7f,%.7f\n', end_result)
 
 former_x = X;
 % 使用这个iteration函数对之前的结果进行优化
 % 第一个参数是已经得到的闭式解（也可以用单位矩阵从头开始优化，但相当容易陷入局部最优）
 % 第二、三个参数是数据，第四个参数是迭代次数。一般100次就可以收敛了，收敛情况请见iteration.m中的delta_x大小
+% 如果大幅更改上面的T，迭代效果会更加明显
 X = iteration(X,M(data_sta:data_end, :),inv_A(:,:,data_sta:data_end),1000)
-qX = rotm2quat(X(1:3,1:3)) %四元数wxyz
 
-end_result = [X(1:3,4)',qX(2:4), qX(1)];
-fprintf('%.7f,%.7f,%.7f,%.7f,%.7f,%.7f,%.7f\n', end_result)
+qX = rotm2quat(X(1:3,1:3))
+
 % save('X2.mat', 'X'); % 保存X到output.mat文件
 
 Y = [];
@@ -42,18 +43,17 @@ for i = 1:length(inv_A)
     Y = [Y; M(i,:) * X * inv(inv_A(:,:,i))];
 end
 
-Y
 
 % 懒得优化Y了，直接取了均值
 real_Y = mean(Y);
-% real_Y = real_Y/norm(real_Y(1:3));
-real_Y(1:3) = real_Y(1:3) / norm(real_Y(1:3));
+real_Y = real_Y/norm(real_Y(1:3));
 
 % 对迭代前和迭代后的X分别求旋转误差和平移误差，推导见公式推导4.jpg
-% 这计算的是相对误差。事实上可视化效果不是很好的结果误差也可能很小
+% 不过还是有一个问题，这里的Y是我们计算出来的，相较于AX=XB这种具有确定性的公式可能不够具有说服力，可能在应用中展示误差比较好（移动到指定位置这样）
 % 不过也难说，毕竟手眼标定误差确实不好算，点云配准论文用的也是点云距离的标准差
-% R_error是误差角度的均方，t_error是误差距离的均方
-% 误差没有特别大的优化，大概还行吧
+% 观察可知有时候迭代后的X误差反而更大，我觉得是迭代公式和误差公式不同的问题。不过在迭代的时候加个判断误差大小，只返回误差最小的X应该能解决
+% R_error单位是°，t_error单位是mm
+% 只看数值的话，误差是相当可以的，特别是旋转误差，比主流的Tsai法低了一个数量级
 [R_error,t_error]  = error_calc(M(data_sta:data_end, :), inv_A(:,:,data_sta:data_end),former_x,real_Y)
 [R_error,t_error]  = error_calc(M(data_sta:data_end, :), inv_A(:,:,data_sta:data_end),X,real_Y)
 
@@ -62,6 +62,6 @@ real_Y(1:3) = real_Y(1:3) / norm(real_Y(1:3));
 % 相较于别的方法差很多。我觉得是因为别的方法直接用标定板和RGB图像进行标定所以重投影误差小。我们算重投影误差是重新采数据计算的，和标定过程没关系，比较吃亏
 
 % variance_Y = var(Y)  %计算方差
-S_y = std(Y)  %计算标准差
+S_y = std(Y);  %计算标准差
 
 

@@ -1,3 +1,17 @@
+function mathtrans=mathtrans
+    mathtrans.data2trans=@data2trans;
+    mathtrans.rotm2quat=@rotm2quat;
+    mathtrans.quat2rotm=@quat2rotm;
+end
+
+
+function [T] = data2trans(A)
+    t = A(1:3);
+    q = A(4:7); % 四元数
+    R = quat2rotm(q); % 四元数转旋转矩阵
+    T = [R, t'; 0, 0, 0, 1]; % 构建齐次变换矩阵
+end
+
 function q = rotm2quat(R)
     % 检查输入是否为3x3矩阵
     if ~all(size(R) == [3, 3])
@@ -33,4 +47,22 @@ function q = rotm2quat(R)
     end
 
     q = [qw, qx, qy, qz];
+end
+
+
+
+
+
+% 测试过了
+function R = quat2rotm(q)       %qx qy qz qw
+    % 四元数转旋转矩阵
+    q = q / norm(q); % 归一化四元数
+    qw = q(4);
+    qx = q(1);
+    qy = q(2);
+    qz = q(3);
+
+    R = [1-2*(qy^2+qz^2), 2*(qx*qy-qz*qw), 2*(qx*qz+qy*qw);
+         2*(qx*qy+qz*qw), 1-2*(qx^2+qz^2), 2*(qy*qz-qx*qw);
+         2*(qx*qz-qy*qw), 2*(qy*qz+qx*qw), 1-2*(qx^2+qy^2)];
 end
