@@ -28,8 +28,12 @@ function [ X ] = YMXA( M,iinv_A )
     Vx=[V(1:3,col),V(4:6,col),V(7:9,col)];
     RX=Vx / nthroot(det(Vx), 3);   %求它的立方根
 
+    %SVD分解实现旋转矩阵正交化
+    [Ux,Sx,Vx]=svd(RX);
+    RX=Ux*Vx';
+    RX=sign(det(RX))*RX;
 
-    qX = rotm2quat(RX(1:3,1:3))
+    qX = rotm2quat(RX(1:3,1:3));
     qX1 = mathtrans().rotm2quat(RX(1:3,1:3));
 
     a1 = K * [RX(1:3,1);RX(1:3,2);RX(1:3,3)];
@@ -65,7 +69,7 @@ function [ X ] = YMXA( M,iinv_A )
     end
 
     
-    tx=At\bt
+    tx=At\bt;
     
     err = At*tx - bt;
 

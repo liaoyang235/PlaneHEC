@@ -2,17 +2,18 @@
 
 clear;
  clc;
-all_data = importdata('data/results_8.22.csv');
-% all_data = all_data(1:30,:);
-% all_data = importdata('data/results_8.2.csv');
+all_data = importdata('data/results_8.30.1234.csv');
+% all_data = importdata('data/results_8.22.csv');
 
 
-% 将数据按行随机分成10组
-numGroups = 10;
+% all_data = all_data(1:90,:)
+
+% 随机5个为一组
+groupSize = 20;
 numRows = size(all_data, 1);
+numGroups = floor(numRows / groupSize);
 indices = randperm(numRows);
 % indices = 1:numRows;
-groupSize = floor(numRows / numGroups);
 dataGroups = cell(1, numGroups);
 
 
@@ -21,8 +22,18 @@ for i = 1:numGroups
     endIdx = min(i * groupSize, numRows);
 
     dataGroups{i} = all_data(indices(startIdx:endIdx), :);
-
 end
+
+% % 将数据按类似"123123123”报数的方式分成10组，每组包含报相同数字的数据行。
+% numGroups = 10;
+% numRows = size(all_data, 1);
+% dataGroups = cell(1, numGroups);
+% 
+% for i = 1:numGroups
+%     dataGroups{i} = all_data(i:numGroups:end, :);
+% end
+
+
 
 all_result = [];
 all_S_y = [];
@@ -61,12 +72,11 @@ for group_num = 1:numGroups
     % 使用这个iteration函数对之前的结果进行优化
     % 第一个参数是已经得到的闭式解（也可以用单位矩阵从头开始优化，但相当容易陷入局部最优）
     % 第二、三个参数是数据，第四个参数是迭代次数。一般100次就可以收敛了，收敛情况请见iteration.m中的delta_x大小
-    X = iteration(X,M(data_sta:data_end, :),inv_A(:,:,data_sta:data_end),1000);
+    X = iteration(X,M(data_sta:data_end, :),inv_A(:,:,data_sta:data_end),100);
     qX = rotm2quat(X(1:3,1:3)); %四元数wxyz
 
     end_result = [X(1:3,4)',qX(2:4), qX(1)];
     fprintf('%.7f,%.7f,%.7f,%.7f,%.7f,%.7f,%.7f\n', end_result)
-    all_result = [all_result; end_result];
     % save('X2.mat', 'X'); % 保存X到output.mat文件
 
     Y = [];
@@ -95,11 +105,26 @@ for group_num = 1:numGroups
     % 相较于别的方法差很多。我觉得是因为别的方法直接用标定板和RGB图像进行标定所以重投影误差小。我们算重投影误差是重新采数据计算的，和标定过程没关系，比较吃亏
 
     % variance_Y = var(Y)  %计算方差
-    S_y = std(Y)  %计算标准差
-    all_real_y = [all_real_y; real_Y];
-    all_S_y = [all_S_y; S_y]
+    S_y = std(Y)  %计算标准差,除以的是（N-1）
+    if t_error < 100
+        all_real_y = [all_real_y; real_Y];
+        all_S_y = [all_S_y; S_y];
+        all_result = [all_result; end_result];
+    end
 end
 all_result
-S_all_result = std(all_result)
+N = size(all_result, 1);
+S_all_result = std(all_result);
+S_all_result = sqrt(S_all_result.^2* (N-1) / N) * 1000  %单位mm
 error_t = sqrt(sum(S_all_result(1:3).^2))
+Q = all_result(:,4:7);
+Q_avg = avg_quaternion_markley(Q)';
+T = all_result(:,1:3);
+T_avg = mean(T);
 
+error_qi = zeros(size(Q, 1), 1);
+for i = 1:size(Q, 1)
+    error_qi(i) = quaternionDifferenceAngle(Q(i, :), Q_avg) * 180 / pi;
+end
+error_q = mean(error_qi);        %绝对值的均值，单位为°
+error_R = sqrt(sum(error_qi.^2)/size(Q, 1))     %平方和均值，单位为°
