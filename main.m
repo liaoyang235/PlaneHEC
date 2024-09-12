@@ -8,7 +8,7 @@ all_data = importdata('data/results_8.30.1234.csv');
 
 % all_data = all_data(1:90,:)
 
-% 随机5个为一组
+% 随机划分，5个为一组
 groupSize = 20;
 numRows = size(all_data, 1);
 numGroups = floor(numRows / groupSize);
@@ -38,6 +38,10 @@ end
 all_result = [];
 all_S_y = [];
 all_real_y = [];
+
+all_former_result = [];
+all_former_S_y = [];
+all_former_real_y = [];
 
 for group_num = 1:numGroups
     data = dataGroups{group_num};
@@ -69,6 +73,17 @@ for group_num = 1:numGroups
     fprintf('%.7f,%.7f,%.7f,%.7f,%.7f,%.7f,%.7f\n', end_result_former)
 
     former_x = X;
+    
+    
+    real_Y = mean(Y);
+    real_Y(1:3) = real_Y(1:3) / norm(real_Y(1:3));
+    S_former_y = std(Y);  %计算标准差,除以的是（N-1）
+    all_former_real_y = [all_former_real_y; real_Y];
+    all_former_S_y = [all_former_S_y; S_former_y];
+    all_former_result = [all_former_result; end_result_former];
+
+
+
     % 使用这个iteration函数对之前的结果进行优化
     % 第一个参数是已经得到的闭式解（也可以用单位矩阵从头开始优化，但相当容易陷入局部最优）
     % 第二、三个参数是数据，第四个参数是迭代次数。一般100次就可以收敛了，收敛情况请见iteration.m中的delta_x大小
@@ -112,9 +127,33 @@ for group_num = 1:numGroups
         all_result = [all_result; end_result];
     end
 end
-all_result
+
+all_former_result;
+N = size(all_former_result, 1);
+S_all_former_result = std(all_former_result);
+
+S_all_former_result = sqrt(S_all_former_result.^2* (N-1) / N) * 1000  %单位mm
+error_former_t = sqrt(sum(S_all_former_result(1:3).^2))
+Q = all_former_result(:,4:7);
+Q_avg = avg_quaternion_markley(Q)';
+T = all_former_result(:,1:3);
+T_avg = mean(T);
+
+error_qi = zeros(size(Q, 1), 1);
+for i = 1:size(Q, 1)
+    error_qi(i) = quaternionDifferenceAngle(Q(i, :), Q_avg) * 180 / pi;
+end
+error_former_q = mean(error_qi);        %绝对值的均值，单位为°
+error_former_R = sqrt(sum(error_qi.^2)/size(Q, 1))     %平方和均值，单位为°
+
+
+
+
+
+all_result;
 N = size(all_result, 1);
 S_all_result = std(all_result);
+
 S_all_result = sqrt(S_all_result.^2* (N-1) / N) * 1000  %单位mm
 error_t = sqrt(sum(S_all_result(1:3).^2))
 Q = all_result(:,4:7);
