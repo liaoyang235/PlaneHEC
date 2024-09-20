@@ -9,7 +9,12 @@ all_data = importdata('data/results_8.30.1234.csv');    %161组数据
 % all_data = importdata('data/results_8.22.csv');       %103
 
 
-% all_data = all_data(1:90,:)
+
+error_ans = zeros([10,4]);
+rotation_noise = 1:10;
+translation_noise = zeros([1,10]);
+for groupi = 1:10
+
 
 % 随机5个为一组，重复抽取
 groupSize = 15;
@@ -36,7 +41,6 @@ end
 % end
 
 
-
 all_result = [];
 all_S_y = [];
 all_real_y = [];
@@ -60,6 +64,11 @@ for group_num = 1:numGroups
         inv_A = cat(3, inv_A,data2trans(data(i, 4:10)));
     end
     
+    %对平面加上噪声 旋转噪声，平移噪声
+    for i = 1:numRows
+        M(i,:) = plane_add_noise(M(i,:), rotation_noise(groupi), translation_noise(groupi));
+    end
+
     inv_A0 = inv_A(:,:,1);
     inv_A0(1:3, 4) = mean(inv_A(1:3, 4, :), 3);
     
@@ -134,11 +143,11 @@ for group_num = 1:numGroups
 
     % variance_Y = var(Y)  %计算方差
     S_y = std(Y)  %计算标准差,除以的是（N-1）
-    if t_error < 100
+%     if t_error < 100
         all_real_y = [all_real_y; real_Y];
         all_S_y = [all_S_y; S_y];
         all_result = [all_result; end_result];
-    end
+%     end
 end
 
 toc;
@@ -191,6 +200,7 @@ end
 error_q = mean(error_qi);        %绝对值的均值，单位为°
 error_R = sqrt(sum(error_qi.^2)/size(Q, 1))     %平方和均值，单位为°
 
+
 % 计算num_its的均值，标准差，最大值，最小值
 mean_num_its = mean(num_its);
 std_num_its = std(num_its);
@@ -202,5 +212,5 @@ fprintf('迭代次数的标准差: %.5f\n', std_num_its);
 fprintf('迭代次数的最大值: %d\n', max_num_its);
 fprintf('迭代次数的最小值: %d\n', min_num_its);
 
-
-
+error_ans(groupi,:) = [ rotation_noise(groupi), translation_noise(groupi), error_R, error_t];
+end
