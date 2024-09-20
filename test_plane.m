@@ -37,8 +37,15 @@ for i=1:numRows
 end
 
 
-data_sta = 1;
-data_end = numRows;
+% inv_A0 = inv_A(:,:,1);
+% %     inv_A(1:3, 4, :)
+% inv_A0(1:3, 4) = mean(inv_A(1:3, 4, :), 3);
+% 
+% for i=1:numRows %做这一步转换到相对位置
+%     inv_A(:,:,i) = inv(inv_A0) * inv_A(:,:,i);
+% end
+
+
 
 Y = [];
 for i = 1:length(inv_A)

@@ -1,18 +1,20 @@
 
 
 clear;
- clc;
-all_data = importdata('data/results_9.11.csv');
-% all_data = importdata('data/results_8.30.1234.csv');
-% all_data = importdata('data/results_8.22.csv');
+clc;
+
+% all_data = importdata('data/results_8.2.csv');       %30
+% all_data = importdata('data/results_9.11.csv');       %26
+all_data = importdata('data/results_8.30.1234.csv');    %161组数据
+% all_data = importdata('data/results_8.22.csv');       %103
 
 
 % all_data = all_data(1:90,:)
 
 % 随机5个为一组，重复抽取
-groupSize = 15;
+groupSize = 4;
 numRows = size(all_data, 1);
-numGroups = 5;
+numGroups = 500;
 indices = randperm(numRows);
 % indices = 1:numRows;
 dataGroups = cell(1, numGroups);
@@ -42,6 +44,9 @@ all_real_y = [];
 all_former_result = [];
 all_former_S_y = [];
 all_former_real_y = [];
+num_its = [];
+
+tic;
 
 for group_num = 1:numGroups
     data = dataGroups{group_num};
@@ -54,8 +59,14 @@ for group_num = 1:numGroups
         data2trans(data(i, 4:10));
         inv_A = cat(3, inv_A,data2trans(data(i, 4:10)));
     end
-
-
+    
+    inv_A0 = inv_A(:,:,1);
+    inv_A0(1:3, 4) = mean(inv_A(1:3, 4, :), 3);
+    
+    for i=1:numRows %做这一步转换到相对位置
+        inv_A(:,:,i) = inv(inv_A0) * inv_A(:,:,i);
+    end
+    
     data_sta = 1;
     data_end = numRows;
 
@@ -87,7 +98,9 @@ for group_num = 1:numGroups
     % 使用这个iteration函数对之前的结果进行优化
     % 第一个参数是已经得到的闭式解（也可以用单位矩阵从头开始优化，但相当容易陷入局部最优）
     % 第二、三个参数是数据，第四个参数是迭代次数。一般100次就可以收敛了，收敛情况请见iteration.m中的delta_x大小
-    X = iteration(X,M(data_sta:data_end, :),inv_A(:,:,data_sta:data_end),100);
+    [X, num_it] = iteration(X,M(data_sta:data_end, :),inv_A(:,:,data_sta:data_end),100);
+    num_its = [num_its; num_it];
+
     qX = rotm2quat(X(1:3,1:3)); %四元数wxyz
 
     end_result = [X(1:3,4)',qX(2:4), qX(1)];
@@ -128,12 +141,18 @@ for group_num = 1:numGroups
     end
 end
 
+toc;
+
 all_former_result;
 N = size(all_former_result, 1);
 S_all_former_result = std(all_former_result);
 
 S_all_former_result = sqrt(S_all_former_result.^2* (N-1) / N) * 1000  %单位mm
 error_former_t = sqrt(sum(S_all_former_result(1:3).^2))
+
+error_former_txy = sqrt(sum(S_all_former_result(1:2).^2))
+error_former_tz = S_all_former_result(3)
+
 Q = all_former_result(:,4:7);
 Q_avg = avg_quaternion_markley(Q)';
 T = all_former_result(:,1:3);
@@ -156,6 +175,10 @@ S_all_result = std(all_result);
 
 S_all_result = sqrt(S_all_result.^2* (N-1) / N) * 1000  %单位mm
 error_t = sqrt(sum(S_all_result(1:3).^2))
+
+error_txy = sqrt(sum(S_all_result(1:2).^2))
+error_tz = S_all_result(3)
+
 Q = all_result(:,4:7);
 Q_avg = avg_quaternion_markley(Q)';
 T = all_result(:,1:3);
@@ -167,3 +190,17 @@ for i = 1:size(Q, 1)
 end
 error_q = mean(error_qi);        %绝对值的均值，单位为°
 error_R = sqrt(sum(error_qi.^2)/size(Q, 1))     %平方和均值，单位为°
+
+% 计算num_its的均值，标准差，最大值，最小值
+mean_num_its = mean(num_its);
+std_num_its = std(num_its);
+max_num_its = max(num_its);
+min_num_its = min(num_its);
+
+fprintf('迭代次数的均值: %.5f\n', mean_num_its);
+fprintf('迭代次数的标准差: %.5f\n', std_num_its);
+fprintf('迭代次数的最大值: %d\n', max_num_its);
+fprintf('迭代次数的最小值: %d\n', min_num_its);
+
+
+

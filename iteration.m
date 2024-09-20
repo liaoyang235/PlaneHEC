@@ -1,4 +1,4 @@
-function [T] = iteration(Tx,M,iinvA,ite)
+function [T, num_iterations] = iteration(Tx,M,iinvA,ite)
     Rx = Tx(1:3,1:3);
     tx = Tx(1:3,4);
     A = pageinv(iinvA);
@@ -77,16 +77,17 @@ function [T] = iteration(Tx,M,iinvA,ite)
         norm_delta_x = norm(delta_x);
         
 
-%         if norm_delta_x > last_norm_delta_x
-%             disp(['迭代在第 ', num2str(k), ' 次停止，因为 delta_x 变大了']);
-%             last_norm_delta_x
-% %             break;
-%         end
-
-        if norm_delta_x < 1e-15
-            disp(['迭代在第 ', num2str(k), ' 次停止，因为 delta_x 很小了']);
+        if norm_delta_x > last_norm_delta_x
+            num_iterations = k;
+            disp(['迭代在第 ', num2str(k), ' 次停止，因为 delta_x 变大了']);
+            last_norm_delta_x
             break;
         end
+
+%         if norm_delta_x < 1e-15
+%             disp(['迭代在第 ', num2str(k), ' 次停止，因为 delta_x 很小了']);
+%             break;
+%         end
 
 
         last_norm_delta_x = norm_delta_x;
