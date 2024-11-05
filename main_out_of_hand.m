@@ -2,33 +2,25 @@
 
 clear;
 clc;
-
-% all_data = importdata('data/results_8.2.csv');       %30
-% all_data = importdata('data/results_9.11.csv');       %26
-all_data = importdata('data/results_8.30.1234.csv');    %161组数据
-% all_data = importdata('data/results_8.22.csv');       %103
+all_data = importdata('data/result_out_of_hand_11.5.csv');       %30
 
 
+% all_data = all_data(1:90,:)
 
-error_ans = zeros([10,4]);
-rotation_noise = 1:10;
-translation_noise = zeros([1,10]);
-for groupi = 1:10
-
-
-% 随机5个为一组，重复抽取
-groupSize = 4;
+% 随机划分，5个为一组
+groupSize = 18;
 numRows = size(all_data, 1);
-numGroups = 50;
+numGroups = floor(numRows / groupSize);
 indices = randperm(numRows);
 % indices = 1:numRows;
 dataGroups = cell(1, numGroups);
 
 
 for i = 1:numGroups
-    % 随机抽取20个数据
-    randomIndices = randperm(numRows, groupSize);
-    dataGroups{i} = all_data(randomIndices, :);
+    startIdx = (i-1) * groupSize + 1;
+    endIdx = min(i * groupSize, numRows);
+
+    dataGroups{i} = all_data(indices(startIdx:endIdx), :);
 end
 
 % % 将数据按类似"123123123”报数的方式分成10组，每组包含报相同数字的数据行。
@@ -39,6 +31,7 @@ end
 % for i = 1:numGroups
 %     dataGroups{i} = all_data(i:numGroups:end, :);
 % end
+
 
 
 all_result = [];
@@ -52,6 +45,7 @@ num_its = [];
 
 tic;
 
+
 for group_num = 1:numGroups
     data = dataGroups{group_num};
 
@@ -60,22 +54,18 @@ for group_num = 1:numGroups
     inv_A = [];
     for i=1:numRows
         M = [M; data2plane(data(i, 1:3))];
-        data2trans(data(i, 4:10));
-        inv_A = cat(3, inv_A,data2trans(data(i, 4:10)));
-    end
-    
-    %对平面加上噪声 旋转噪声，平移噪声
-    for i = 1:numRows
-        M(i,:) = plane_add_noise(M(i,:), rotation_noise(groupi), translation_noise(groupi));
+        % data2trans(data(i, 4:10))
+        % inv(data2trans(data(i, 4:10)))
+        inv_A = cat(3, inv_A, inv(data2trans(data(i, 4:10))));
     end
 
-    inv_A0 = inv_A(:,:,1);
-    inv_A0(1:3, 4) = mean(inv_A(1:3, 4, :), 3);
+    % inv_A0 = inv_A(:,:,1);
+    %     inv_A0(1:3, 4) = mean(inv_A(1:3, 4, :), 3);
     
-    for i=1:numRows %做这一步转换到相对位置
-        inv_A(:,:,i) = inv(inv_A0) * inv_A(:,:,i);
-    end
-    
+    % for i=1:numRows %做这一步转换到相对位置
+    %     inv_A(:,:,i) = inv(inv_A0) * inv_A(:,:,i);
+    % end
+
     data_sta = 1;
     data_end = numRows;
 
@@ -91,6 +81,13 @@ for group_num = 1:numGroups
     qX = rotm2quat(X(1:3,1:3)); %四元数wxyz
     end_result_former = [X(1:3,4)',qX(2:4), qX(1)];
     fprintf('%.7f,%.7f,%.7f,%.7f,%.7f,%.7f,%.7f\n', end_result_former)
+
+    inv_X = inv(X)
+
+    qX = rotm2quat(inv_X(1:3,1:3)); %四元数wxyz
+    end_result_former = [inv_X(1:3,4)',qX(2:4), qX(1)];
+    fprintf('%.7f,%.7f,%.7f,%.7f,%.7f,%.7f,%.7f\n', end_result_former)
+
 
     former_x = X;
     
@@ -143,11 +140,11 @@ for group_num = 1:numGroups
 
     % variance_Y = var(Y)  %计算方差
     S_y = std(Y)  %计算标准差,除以的是（N-1）
-%     if t_error < 100
+    if t_error < 100
         all_real_y = [all_real_y; real_Y];
         all_S_y = [all_S_y; S_y];
         all_result = [all_result; end_result];
-%     end
+    end
 end
 
 toc;
@@ -156,60 +153,60 @@ all_former_result;
 N = size(all_former_result, 1);
 S_all_former_result = std(all_former_result);
 
-S_all_former_result = sqrt(S_all_former_result.^2* (N-1) / N) * 1000  %单位mm
-error_former_t = sqrt(sum(S_all_former_result(1:3).^2))
+% S_all_former_result = sqrt(S_all_former_result.^2* (N-1) / N) * 1000  %单位mm
+% error_former_t = sqrt(sum(S_all_former_result(1:3).^2))
 
-error_former_txy = sqrt(sum(S_all_former_result(1:2).^2))
-error_former_tz = S_all_former_result(3)
+% error_former_txy = sqrt(sum(S_all_former_result(1:2).^2))
+% error_former_tz = S_all_former_result(3)
 
-Q = all_former_result(:,4:7);
-Q_avg = avg_quaternion_markley(Q)';
-T = all_former_result(:,1:3);
-T_avg = mean(T);
+% Q = all_former_result(:,4:7);
+% Q_avg = avg_quaternion_markley(Q)';
+% T = all_former_result(:,1:3);
+% T_avg = mean(T);
 
-error_qi = zeros(size(Q, 1), 1);
-for i = 1:size(Q, 1)
-    error_qi(i) = quaternionDifferenceAngle(Q(i, :), Q_avg) * 180 / pi;
-end
-error_former_q = mean(error_qi);        %绝对值的均值，单位为°
-error_former_R = sqrt(sum(error_qi.^2)/size(Q, 1))     %平方和均值，单位为°
-
-
+% error_qi = zeros(size(Q, 1), 1);
+% for i = 1:size(Q, 1)
+%     error_qi(i) = quaternionDifferenceAngle(Q(i, :), Q_avg) * 180 / pi;
+% end
+% error_former_q = mean(error_qi);        %绝对值的均值，单位为°
+% error_former_R = sqrt(sum(error_qi.^2)/size(Q, 1))     %平方和均值，单位为°
 
 
 
-all_result;
-N = size(all_result, 1);
-S_all_result = std(all_result);
 
-S_all_result = sqrt(S_all_result.^2* (N-1) / N) * 1000  %单位mm
-error_t = sqrt(sum(S_all_result(1:3).^2))
 
-error_txy = sqrt(sum(S_all_result(1:2).^2))
-error_tz = S_all_result(3)
+% all_result;
+% N = size(all_result, 1);
+% S_all_result = std(all_result);
 
-Q = all_result(:,4:7);
-Q_avg = avg_quaternion_markley(Q)';
-T = all_result(:,1:3);
-T_avg = mean(T);
+% S_all_result = sqrt(S_all_result.^2* (N-1) / N) * 1000  %单位mm
+% error_t = sqrt(sum(S_all_result(1:3).^2))
 
-error_qi = zeros(size(Q, 1), 1);
-for i = 1:size(Q, 1)
-    error_qi(i) = quaternionDifferenceAngle(Q(i, :), Q_avg) * 180 / pi;
-end
-error_q = mean(error_qi);        %绝对值的均值，单位为°
-error_R = sqrt(sum(error_qi.^2)/size(Q, 1))     %平方和均值，单位为°
+% error_txy = sqrt(sum(S_all_result(1:2).^2))
+% error_tz = S_all_result(3)
 
-% 计算num_its的均值，标准差，最大值，最小值
-mean_num_its = mean(num_its);
-std_num_its = std(num_its);
-max_num_its = max(num_its);
-min_num_its = min(num_its);
+% Q = all_result(:,4:7);
+% Q_avg = avg_quaternion_markley(Q)';
+% T = all_result(:,1:3);
+% T_avg = mean(T);
 
-fprintf('迭代次数的均值: %.5f\n', mean_num_its);
-fprintf('迭代次数的标准差: %.5f\n', std_num_its);
-fprintf('迭代次数的最大值: %d\n', max_num_its);
-fprintf('迭代次数的最小值: %d\n', min_num_its);
+% error_qi = zeros(size(Q, 1), 1);
+% for i = 1:size(Q, 1)
+%     error_qi(i) = quaternionDifferenceAngle(Q(i, :), Q_avg) * 180 / pi;
+% end
+% error_q = mean(error_qi);        %绝对值的均值，单位为°
+% error_R = sqrt(sum(error_qi.^2)/size(Q, 1))     %平方和均值，单位为°
 
-error_ans(groupi,:) = [ rotation_noise(groupi), translation_noise(groupi), error_R, error_t];
-end
+% % 计算num_its的均值，标准差，最大值，最小值
+% mean_num_its = mean(num_its);
+% std_num_its = std(num_its);
+% max_num_its = max(num_its);
+% min_num_its = min(num_its);
+
+% fprintf('迭代次数的均值: %.5f\n', mean_num_its);
+% fprintf('迭代次数的标准差: %.5f\n', std_num_its);
+% fprintf('迭代次数的最大值: %d\n', max_num_its);
+% fprintf('迭代次数的最小值: %d\n', min_num_its);
+
+
+
