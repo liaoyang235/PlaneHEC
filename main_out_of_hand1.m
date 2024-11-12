@@ -8,21 +8,23 @@ all_data = importdata('data/result_out_of_hand_11.11_big.csv');       %30
 
 % all_data = all_data(1:90,:)
 
-% 随机划分，5个为一组
+
+% 随机5个为一组，重复抽取
 groupSize = 30;
 numRows = size(all_data, 1);
-numGroups = floor(numRows / groupSize);
+numGroups = 50;
 indices = randperm(numRows);
 % indices = 1:numRows;
 dataGroups = cell(1, numGroups);
 
 
 for i = 1:numGroups
-    startIdx = (i-1) * groupSize + 1;
-    endIdx = min(i * groupSize, numRows);
-
-    dataGroups{i} = all_data(indices(startIdx:endIdx), :);
+    % 随机抽取20个数据
+    randomIndices = randperm(numRows, groupSize);
+    dataGroups{i} = all_data(randomIndices, :);
 end
+
+
 
 % % 将数据按类似"123123123”报数的方式分成10组，每组包含报相同数字的数据行。
 % numGroups = 10;
