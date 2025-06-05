@@ -31,6 +31,7 @@ function [ X ] = YMXA( M,iinv_A )
     %SVD分解实现旋转矩阵正交化
     [Ux,Sx,Vx]=svd(RX);
     RX=Ux*Vx';
+    
     RX=sign(det(RX))*RX;
 
     qX = rotm2quat(RX(1:3,1:3));

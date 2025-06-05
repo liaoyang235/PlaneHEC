@@ -10,9 +10,9 @@ all_data = importdata('data/result_out_of_hand_11.11_big.csv');       %30
 
 
 % 随机5个为一组，重复抽取
-groupSize = 30;
+groupSize = 4;
 numRows = size(all_data, 1);
-numGroups = 50;
+numGroups = 300;
 indices = randperm(numRows);
 % indices = 1:numRows;
 dataGroups = cell(1, numGroups);
@@ -50,6 +50,7 @@ tic;
 
 
 for group_num = 1:numGroups
+    group_num
     data = dataGroups{group_num};
 
     [numRows, numCols] = size(data);
@@ -62,12 +63,13 @@ for group_num = 1:numGroups
         inv_A = cat(3, inv_A, inv(data2trans(data(i, 4:10))));
     end
 
-    % inv_A0 = inv_A(:,:,1);
-    %     inv_A0(1:3, 4) = mean(inv_A(1:3, 4, :), 3);
-    
-    % for i=1:numRows %做这一步转换到相对位置
-    %     inv_A(:,:,i) = inv(inv_A0) * inv_A(:,:,i);
-    % end
+%     inv_A0 = inv_A(:,:,1);
+%     inv_A0(1:3, 4) = mean(inv_A(1:3, 4, :), 3);
+%     
+%     % 眼在手外场景，不加这个优化的结果好一点
+%     for i=1:numRows %做这一步转换到相对位置
+%         inv_A(:,:,i) = inv(inv_A0) * inv_A(:,:,i);
+%     end
 
     data_sta = 1;
     data_end = numRows;
