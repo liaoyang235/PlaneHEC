@@ -50,10 +50,6 @@ function q = rotm2quat(R)
 end
 
 
-
-
-
-% 测试过了
 function R = quat2rotm(q)       %qx qy qz qw
     % 四元数转旋转矩阵
     q = q / norm(q); % 归一化四元数
